@@ -24,4 +24,4 @@ def load_ptbxl(path: str, sampling_rate=500, files_num=""):
     data = [(wfdb.rdsamp(path+f, channels=[1]), f.split('/')[-1],) for f in tqdm(file_names)]
 
     data = [signal.reshape((-1, )) for (signal, meta), f in data]
-    return data
+    return np.array(data)
