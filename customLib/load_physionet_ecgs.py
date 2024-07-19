@@ -5,10 +5,13 @@ import wfdb
 from tqdm import tqdm
 from customLib.vis import plot_ecg
 from customLib.config import *
-from customLib.preprocess import split_signal, expand_labels
+from customLib.preprocess import split_signal, expand_labels, myConv1D
 
-def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True):
+def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True, denoise=False):
   preprocessed_path = os.path.join(path, "preprocessed")
+
+  if expand:
+    preprocessed_path = os.path.join(preprocessed_path, "expandend_labels")
 
   # if files already exist, read them
   if force_new == False:
@@ -22,7 +25,7 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
   
   if not os.path.exists(preprocessed_path):
     os.mkdir(preprocessed_path)
-
+  
   # Get all file names of the recordings / annotations
   fileNames = [ x.split(".")[0] for x in os.listdir(path) if x.endswith(annotation_file_extension) ]
 
@@ -71,8 +74,9 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
     n_sig = record.n_sig
     for sig in range(n_sig): # depends on the number of channels (mit-bih has 2, apnea-ecg has 1)
       ecg = record.p_signal[:,sig]
+      ecg = myConv1D(signal=ecg, kernel_length=5, padding="same")
 
-      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=True, overlap_factor=0.0)
+      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=True, overlap_factor=0.0, denoise=denoise)
 
       invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
       valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
