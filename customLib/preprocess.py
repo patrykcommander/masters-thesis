@@ -51,7 +51,7 @@ def norm_min_max(signal, lower, upper):
 def stationary(signal):
     return np.diff(signal)
 
-def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, normalize=False):
+def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, normalize=False, denoise=False):
     window_size = int(fs * window_in_seconds)
     overlap = int(window_size * overlap_factor)
     step = window_size - overlap
@@ -60,8 +60,11 @@ def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0
     while start + window_size <= len(signal):
         signal_slice = signal[start:start+window_size]
         start += step
+        if denoise:
+            signal_slice = dwt_denoise(signal_slice)
         if normalize:
             signal_slice = norm_min_max(signal_slice, lower=-1, upper=1)
+
         signal_windows.append(signal_slice)
     return signal_windows
 
@@ -108,7 +111,7 @@ def dwt_denoise(signal, wavelet="db8"):
 
   return signal_denoised
 
-def expand_labels(annotation_windows: list, fileName="", left_shift=14, right_shift=15):
+def expand_labels(annotation_windows: list, fileName="", left_shift=5, right_shift=5):
     # annotation_windows - list of numpy 1D arrays
 
     #### Expanding labels as in the paper DOI: 10.1109/TIM.2023.3241997

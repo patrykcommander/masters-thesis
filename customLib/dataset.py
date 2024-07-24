@@ -26,9 +26,8 @@ def read_dataset(path, is_validation_set=False):
 
 def split_dataset(x=None, y=None, split_ratio=0.8, is_validation_set=False, shuffle=False, path=None):
   if path is not None:
-      dataset_path = os.path.join(path, "dataset")
-      if(not (os.path.isdir(dataset_path))):
-        os.mkdir(dataset_path)
+    if(not (os.path.isdir(path))):
+      os.mkdir(path)
   else:
     warnings.warn("Path is not specified. The dataset is not being saved.")
   
@@ -53,10 +52,11 @@ def split_dataset(x=None, y=None, split_ratio=0.8, is_validation_set=False, shuf
   y_test = np.array(y[split_idx:])
 
   if path is not None:
-    np.save(os.path.join(dataset_path, "x_train.npy"), x_train)
-    np.save(os.path.join(dataset_path, "y_train.npy"), y_train)
-    np.save(os.path.join(dataset_path, "x_test.npy"), x_test)
-    np.save(os.path.join(dataset_path, "y_test.npy"),  y_test)
+    print("Saving dataset to: \n", path)
+    np.save(os.path.join(path, "x_train.npy"), x_train)
+    np.save(os.path.join(path, "y_train.npy"), y_train)
+    np.save(os.path.join(path, "x_test.npy"), x_test)
+    np.save(os.path.join(path, "y_test.npy"),  y_test)
 
   if is_validation_set:
     total_x_test_samples = x_test.shape[0]
@@ -70,8 +70,8 @@ def split_dataset(x=None, y=None, split_ratio=0.8, is_validation_set=False, shuf
     y_val = y_test[val_indices]
 
     if path is not None:
-      np.save(os.path.join(dataset_path, "x_val.npy"), x_val)
-      np.save(os.path.join(dataset_path, "y_val.npy"),  y_val)
+      np.save(os.path.join(path, "x_val.npy"), x_val)
+      np.save(os.path.join(path, "y_val.npy"),  y_val)
 
     return (x_train, y_train, x_test, y_test, x_val, y_val)
   else:
