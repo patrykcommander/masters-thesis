@@ -3,25 +3,36 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torch
 from torch import nn
-from torch.optim import Adam
+from torch.optim import Adam, lr_scheduler
 from torch.utils.data import DataLoader
 from models.datasets import ECGDataset
 from sklearn.metrics import f1_score, confusion_matrix, balanced_accuracy_score
 from models.st_res_blocks import ST, ResPath, UpSampleBlock
 from models.losses import WeightedBCELoss
+from models.transformer_blocks import TransformerEncoderLayer
+from customLib.peak_detection import correct_prediction_according_to_aami
 
 class BasicModel(nn.Module):
-    def __init__(self, apply_sigmoid=False):
+    def __init__(self, apply_sigmoid=False, checkpoint_path=None, name=None):
         super(BasicModel, self).__init__()
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print('Training will be performed with:', self.device)
         self.to(self.device)
-
+        
+        self.best_acc = 0.0
         self.apply_sigmoid = apply_sigmoid
+
+        self.checkpoint_path = checkpoint_path
+        self.name = name
 
     def forward(self, x):
         pass
+
+    def on_epoch_end(self, epoch, accuracy, f1):
+        if accuracy > self.best_acc:
+            self.best_acc = accuracy
+            torch.save(self.state_dict(), f"{self.checkpoint_path}/{self.name}_epoch_{epoch+1}_acc_{accuracy*100:.2f}_f1_{f1:.2f}.pt")
 
     def train_model(self, x_train, y_train, epochs=10, batch_size=1, x_val=None, y_val=None,):
         self.batch_size = batch_size
@@ -56,7 +67,7 @@ class BasicModel(nn.Module):
                 self.optimizer.step()
 
                 if self.apply_sigmoid:
-                        outputs = torch.sigmoid(outputs)
+                    outputs = torch.sigmoid(outputs)
 
                 outputs = outputs.cpu().detach().numpy()
                 y = y.cpu().detach().numpy()
@@ -76,17 +87,23 @@ class BasicModel(nn.Module):
                     plt.plot(outputs[randIdx].flatten(), 'r--')
                     plt.legend(["ECG", "Ground Truth", "Prediction"])
                     plt.show()
-            
+
+            if self.scheduler is not None:
+                self.scheduler.step()
+                print("Learning rate: ", self.scheduler.get_last_lr())
+
             all_outputs = np.array(all_outputs)
             all_labels = np.array(all_labels)
             y_pred_binary = (all_outputs > 0.5).astype(int)
 
             print(f"\nTrain Loss: {running_loss / len(train_loader):.4f}")
-            self.calculate_metrics(all_labels, y_pred_binary, phase="Train")
+            acc, f1 = self.calculate_metrics(all_labels, y_pred_binary, phase="Train")
         
             if x_val is not None:
                 self.validate(validation_loader)
-  
+
+            self.on_epoch_end(epoch, accuracy=acc, f1=f1)
+
     def validate(self, validation_loader):
         self.eval()
         running_vloss = 0.0
@@ -155,7 +172,7 @@ class BasicModel(nn.Module):
                 all_outputs.extend(outputs.flatten())
                 all_labels.extend(y.flatten())
 
-                if plot and (i % (len(test_loader) / 10) == 0):
+                if plot and (i % int((len(test_loader) / 10)) == 0):
                     ecg = x[0].cpu().detach().numpy().flatten()
                     gt = y[0].flatten()
                     pred = outputs[0].flatten()
@@ -178,6 +195,9 @@ class BasicModel(nn.Module):
     # we only care about the precision of the R_peaks (binary class 1) and we about the false positive rate
     def calculate_metrics(self, y_true, y_pred_binary, phase="Train"):
         # TODO: upgrade metrics (R-wave prediction in the particular neighbourhood of the labeled sample treated as correct)
+        # according ot the AAMI standard, the R-peak prediction is considered to be correct (TP) 
+        # if its time deviation from each side of the real R-peak position is less than 75 ms. Should this time difference be greater,
+        # the R-peak is considered to be a false positive
 
         total_targets = y_true.shape[0]
         positive_count = np.sum(y_true)
@@ -186,6 +206,8 @@ class BasicModel(nn.Module):
         w_n = positive_count / total_targets
 
         weights = [ w_p if x == 1 else w_n for x in y_true ]
+
+        y_pred_binary = correct_prediction_according_to_aami(y_true, y_pred_binary)
 
         accuracy = balanced_accuracy_score(y_true=y_true, y_pred=y_pred_binary, sample_weight=weights)
         
@@ -205,9 +227,11 @@ class BasicModel(nn.Module):
         print(f"{phase} TNR: {tnr:.5f}")
         print(f"{phase} FNR: {fnr:.5f}\n")
 
+        return accuracy, f1
+
 class ST_RES_NET(BasicModel):
-    def __init__(self, learning_rate=1e-4):
-        super(ST_RES_NET, self).__init__(apply_sigmoid=False)
+    def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None):
+        super(ST_RES_NET, self).__init__(apply_sigmoid=False, checkpoint_path="./checkpoints/st_res_net", name="ST_RES_NET")
         self.st_block_1 = ST(1, 8)
         self.st_block_2 = ST(8, 16)
         self.st_block_3 = ST(16, 32)
@@ -224,7 +248,7 @@ class ST_RES_NET(BasicModel):
 
         self.output = nn.Conv1d(8, 1, kernel_size=1, stride=1)
 
-        self.criterion = WeightedBCELoss() #nn.BCELoss()
+        self.criterion = WeightedBCELoss(positive_weight=loss_pos_weight, negative_weight=loss_neg_weight) # nn.BCELoss()
         self.optimizer = Adam(self.parameters(), lr=learning_rate)
         self.to(self.device)
 
@@ -250,8 +274,8 @@ class ST_RES_NET(BasicModel):
 
 # trained with expanded_labels
 class LSTM(BasicModel):
-    def __init__(self, input_dim, hidden_size, lr=1e-2, loss_pos_weight=None):
-      super(LSTM, self).__init__(apply_sigmoid=True)
+    def __init__(self, input_dim, hidden_size, lr=1e-2, loss_pos_weight=None, checkpoint_path="./checkpoints/lstm", name="lstm"):
+      super(LSTM, self).__init__(apply_sigmoid=True,  name=name, checkpoint_path=checkpoint_path)
       self.lstm_1 = torch.nn.LSTM(input_size=input_dim, hidden_size=hidden_size, batch_first=True, bidirectional=True, dropout=0.3)
       self.lstm_2 = torch.nn.LSTM(input_size=2*hidden_size, hidden_size=hidden_size, bidirectional=True, batch_first=True)
       #self.relu = torch.nn.ReLU()
@@ -263,7 +287,9 @@ class LSTM(BasicModel):
       # self.sigmoid = torch.nn.Sigmoid()
 
       self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=loss_pos_weight) # WeightedBCELoss() # torch.nn.BCELoss()
-      self.optimizer = Adam(self.parameters(), lr=lr)
+      self.optimizer = Adam(self.parameters(), lr=lr, amsgrad=True)
+      self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, milestones=[15,25], gamma=0.1)
+
       self.to(self.device)
 
     def forward(self, x):
@@ -276,3 +302,85 @@ class LSTM(BasicModel):
         x = self.dense(x)
         # output = self.sigmoid(x) 
         return x
+
+class TransRR(BasicModel):
+    def __init__(self, num_layers, input_dim, nhead, dropout, loss_pos_weight, loss_neg_weight, learning_rate=1e-4):
+        super(TransRR, self).__init__(name="transRR", checkpoint_path="./checkpoints/transRR")
+
+        self.embedding_layer = nn.Sequential(
+            nn.Conv1d(1, 16, padding=1, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv1d(16, 32, padding=1, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv1d(32, input_dim, padding=1, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv1d(64, input_dim, padding=1, kernel_size=3),
+            nn.ReLU(),
+        )
+
+        self.layers = nn.ModuleList([
+            TransformerEncoderLayer(input_dim=input_dim, nhead=nhead, dropout=dropout)
+            for _ in range(num_layers)
+        ])
+        self.num_layers = num_layers
+
+        self.linear_1 = nn.Linear(input_dim, 1)
+
+        self.sigmoid = nn.Sigmoid()
+
+        self.criterion = WeightedBCELoss(positive_weight=loss_pos_weight, negative_weight=loss_neg_weight) # nn.BCELoss()
+        self.optimizer = Adam(self.parameters(), lr=learning_rate)
+        self.to(self.device)
+
+
+    def forward(self, src):
+        src = self.embedding_layer(src)
+
+        output = src.permute(0,2,1)
+        for layer in self.layers:
+            output = layer(output)
+ 
+        output = self.linear_1(output)
+        
+        return self.sigmoid(output)
+
+class SimpleTransformerModel(BasicModel):
+    def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout):
+        super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path="./checkpoints/TNET")
+        
+        self.input_dim = input_dim
+        self.seq_length = seq_length
+
+        self.embedding_layer = nn.Sequential(
+            nn.Conv1d(1, 16, padding=1, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv1d(16, 32, padding=1, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv1d(32, input_dim, padding=1, kernel_size=3),
+            nn.ReLU(),
+        )
+        
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.dense = nn.Linear(input_dim, 1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.criterion = WeightedBCELoss(negative_weight=1, positive_weight=10)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        self.scheduler = None
+
+        self.to(self.device)
+
+    def forward(self, x):
+        # x shape: [batch_size, seq_length, 1]
+        x = x.permute(0, 2, 1)  # Reshape to [batch_size, in_channels (1), seq_length]
+        embedded = self.embedding_layer(x)  # Shape: [batch_size, input_dim, seq_length]
+        embedded = embedded.permute(2, 0, 1) # Shape: [seq_length, batch_size, input_dim]
+
+        transformed = self.transformer_encoder(embedded)  # Shape: [seq_length, batch_size, input_dim]
+        transformed = transformed.permute(1, 0, 2)  # Reshape to [batch_size, seq_length, input_dim]
+
+        output = self.dense(transformed)  # Shape: [batch_size, seq_length, 1]
+        
+        return self.sigmoid(output)
+       

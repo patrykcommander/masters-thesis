@@ -42,3 +42,40 @@ def detect_nk(ecg_slice, fs):
     return r_peaks
 
 
+import numpy as np
+
+def find_mean_avg_r_peak_indices(y_pred):
+    result = np.zeros_like(y_pred)
+    
+    i = 0
+    while i < len(y_pred):
+        if y_pred[i] == 1:
+            start = i
+            while i < len(y_pred) and y_pred[i] == 1:
+                i += 1
+            end = i - 1
+            center = (start + end) // 2
+            result[center] = 1
+        else:
+            i += 1
+            
+    return result
+
+def correct_prediction_according_to_aami(y_true, y_pred, sampling_rate=100):
+    y_pred = find_mean_avg_r_peak_indices(y_pred)
+
+    neighbourhood = int(0.075 * sampling_rate) # AAMI standard
+    
+    for i in range(len(y_true)):
+        if y_true[i] == 1:
+            left = max(i - neighbourhood, 0)
+            right = min(i + neighbourhood + 1, len(y_true))
+            subset = y_pred[left:right]
+            
+            if np.any(subset == 1):
+                idx = np.where(subset == 1)[0][0]
+                if 0 <= left + idx < len(y_pred):
+                    y_pred[left + idx] = 0
+                y_pred[i] = 1
+                
+    return y_pred
