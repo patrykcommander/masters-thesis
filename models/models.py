@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -25,6 +26,24 @@ class BasicModel(nn.Module):
 
         self.checkpoint_path = checkpoint_path
         self.name = name
+
+        self.metrics = {
+            "train": {
+                "loss": [], 
+                "f1": [], 
+                "accuracy": []
+            }, 
+            "validation": {
+                "loss": [], 
+                "f1": [], 
+                "accuracy": []
+            }, 
+            "test": {
+                "loss": [], 
+                "f1": [], 
+                "accuracy": []
+            }
+        }
 
     def forward(self, x):
         pass
@@ -95,14 +114,18 @@ class BasicModel(nn.Module):
             all_outputs = np.array(all_outputs)
             all_labels = np.array(all_labels)
             y_pred_binary = (all_outputs > 0.5).astype(int)
+            test_loss = running_loss / len(train_loader)
 
-            print(f"\nTrain Loss: {running_loss / len(train_loader):.4f}")
-            acc, f1 = self.calculate_metrics(all_labels, y_pred_binary, phase="Train")
+            print(f"\nTrain Loss: {test_loss:.4f}")
+            acc, f1 = self.calculate_metrics(test_loss, all_labels, y_pred_binary, phase="train")
         
             if x_val is not None:
                 self.validate(validation_loader)
 
             self.on_epoch_end(epoch, accuracy=acc, f1=f1)
+        
+        with open(f"./metrics/{self.name}.pkl", "wb") as f: # save metrics after training
+            pickle.dump(self.get_metrics(), f)
 
     def validate(self, validation_loader):
         self.eval()
@@ -136,9 +159,10 @@ class BasicModel(nn.Module):
             all_outputs = np.array(all_outputs)
             all_labels = np.array(all_labels)
             y_pred_binary = (all_outputs > 0.5).astype(int)
+            validation_loss = running_vloss / len(validation_loader)
 
-            print(f"\nValidation Loss: {running_vloss / len(validation_loader):.4f}")
-            self.calculate_metrics(all_labels, y_pred_binary, phase="Validation")
+            print(f"\nValidation Loss: {validation_loss:.4f}")
+            self.calculate_metrics(validation_loss, all_labels, y_pred_binary, phase="validation")
     
     def test_model(self, x_test, y_test, plot=False):
         test_dataset = ECGDataset(x_test, y_test)
@@ -188,12 +212,14 @@ class BasicModel(nn.Module):
         all_outputs = np.array(all_outputs)
         all_labels = np.array(all_labels)
         y_pred_binary = (all_outputs > 0.5).astype(int)
+        test_loss = running_loss / len(test_loader)
 
-        print(f"\nTest Loss: {running_loss / len(test_loader):.4f}")
-        self.calculate_metrics(all_labels, y_pred_binary, phase="Test")
+
+        print(f"\nTest Loss: {test_loss:.4f}")
+        self.calculate_metrics(test_loss, all_labels, y_pred_binary, phase="test")
     
     # we only care about the precision of the R_peaks (binary class 1) and we about the false positive rate
-    def calculate_metrics(self, y_true, y_pred_binary, phase="Train"):
+    def calculate_metrics(self, loss, y_true, y_pred_binary, phase="train"):
         # TODO: upgrade metrics (R-wave prediction in the particular neighbourhood of the labeled sample treated as correct)
         # according ot the AAMI standard, the R-peak prediction is considered to be correct (TP) 
         # if its time deviation from each side of the real R-peak position is less than 75 ms. Should this time difference be greater,
@@ -227,7 +253,14 @@ class BasicModel(nn.Module):
         print(f"{phase} TNR: {tnr:.5f}")
         print(f"{phase} FNR: {fnr:.5f}\n")
 
+        self.metrics[phase]["loss"].append(round(loss, 5))
+        self.metrics[phase]["f1"].append(round(f1, 5))
+        self.metrics[phase]["accuracy"].append(round(accuracy, 5))
+
         return accuracy, f1
+    
+    def get_metrics(self):
+        return self.metrics
 
 class ST_RES_NET(BasicModel):
     def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None):
@@ -250,6 +283,8 @@ class ST_RES_NET(BasicModel):
 
         self.criterion = WeightedBCELoss(positive_weight=loss_pos_weight, negative_weight=loss_neg_weight) # nn.BCELoss()
         self.optimizer = Adam(self.parameters(), lr=learning_rate)
+        self.scheduler = None
+
         self.to(self.device)
 
     def forward(self, x):
