@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.signal import resample
 import pywt
-from customLib.vis import plot_ecg
 
 def add_padding(signal: np.ndarray, kernel_length: int):
 
@@ -69,9 +68,16 @@ def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0
     return signal_windows
 
 def _calc_hrv(peaks_time):
-    RRI = np.diff(peaks_time)
-    SDNN = np.std(RRI)
-    return RRI, SDNN
+    # when no R-peak is detected 
+    with np.errstate(invalid='raise'):
+        try:
+            RRI = np.diff(peaks_time)
+            SDNN = np.std(RRI).round(4)
+        except:
+            RRI = 0
+            SDNN = 0
+
+        return RRI, SDNN
 
 """ def calculate_hrv(signal: np.array, fs: int, threshold=0.3):
     peaks_indices = detect_my_peaks(signal=signal, threshold=threshold)
