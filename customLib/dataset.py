@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 from tqdm import tqdm
 import neurokit2 as nk
-from customLib.preprocess import norm_min_max
+from customLib.preprocess import norm_min_max, dwt_denoise, resample_signal
 
 def read_dataset(path, is_validation_set=False):
   if os.path.exists(os.path.join(path, "x_train.npy")):
@@ -81,14 +81,13 @@ def split_dataset(x=None, y=None, split_ratio=0.8, is_validation_set=False, shuf
 
 # function for annotating ECGs with neurokit2
 def label_ecgs(ecgs, sampling_rate=100):
-  x = []
+  # ecgs is an array of preprocessed ECGs
   y = []
 
   print(f"Total ECGs: {ecgs.shape[0]}")
   
   for idx, ecg in tqdm(enumerate(ecgs), total=ecgs.shape[0]):
     try:
-      ecg = norm_min_max(signal=ecg, lower=-1, upper=1)
       _, r_peaks = nk.ecg_peaks(ecg, sampling_rate=sampling_rate)
       r_peaks_indices = r_peaks["ECG_R_Peaks"]
 
@@ -96,12 +95,10 @@ def label_ecgs(ecgs, sampling_rate=100):
       r_peaks[r_peaks_indices] = 1
 
       y.append(r_peaks)
-      x.append(ecg)
     except Exception as e:
       print(f"Omitting ECG number {idx + 1}")
       print(e)
 
-  x = np.array(x)
   y = np.array(y)
 
-  return x, y
+  return y
