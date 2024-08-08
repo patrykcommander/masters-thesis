@@ -1,7 +1,9 @@
 # https://www.kaggle.com/code/stetelepta/exploring-heart-rate-variability-using-python
+import math
 import numpy as np
 import neurokit2 as nk
 from scipy.ndimage import label
+
 
 def _detect_peaks(signal: np.ndarray, threshold=0.3, qrs_filter=None):
 
@@ -54,7 +56,7 @@ def find_mean_avg_r_peak_indices(y_pred):
             while i < len(y_pred) and y_pred[i] == 1:
                 i += 1
             end = i - 1
-            center = (start + end) // 2
+            center = math.ceil((start + end) // 2)
             result[center] = 1
         else:
             i += 1

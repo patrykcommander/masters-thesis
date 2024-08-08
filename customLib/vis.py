@@ -37,3 +37,47 @@ def plot_dwt(ECG):
             plt.grid()
             plt.legend(["ECG"])
     plt.show()
+
+def plot_metrics(metrics):
+    fig, axs = plt.subplots(nrows=2, ncols=3)
+    epochs = [x+1 for x in range(len(metrics["train"]["loss"]))]
+    ticks = [x for x in epochs if x % 5 == 0]
+    ticks.insert(0, 1)
+
+    ax = axs[0][0]
+    ax.plot(epochs, metrics["train"]["loss"])
+    ax.grid()
+    ax.set_title("Train Loss")
+    ax.set_xticks(ticks)
+
+    ax = axs[0][1]
+    ax.plot(epochs, metrics["train"]["f1"])
+    ax.grid()
+    ax.set_title("Train f1")
+    ax.set_xticks(ticks)
+
+    ax = axs[0][2]
+    ax.plot(epochs, metrics["train"]["accuracy"])
+    ax.grid()
+    ax.set_title("Train accuracy")
+    ax.set_xticks(ticks)
+
+    ax = axs[1][0]
+    ax.plot(epochs, metrics["validation"]["loss"])
+    ax.grid()
+    ax.set_title("Validation Loss")
+    ax.set_xticks(ticks)
+
+    ax = axs[1][1]
+    ax.plot(epochs, metrics["validation"]["f1"])
+    ax.grid()
+    ax.set_title("Validation f1")
+    ax.set_xticks(ticks)
+
+    ax = axs[1][2]
+    ax.plot(epochs, metrics["validation"]["accuracy"])
+    ax.grid()
+    ax.set_title("Validation accuracy")
+    ax.set_xticks(ticks)
+
+    fig.set_size_inches(w=14, h=8)
