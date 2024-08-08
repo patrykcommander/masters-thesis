@@ -114,10 +114,10 @@ class BasicModel(nn.Module):
             all_outputs = np.array(all_outputs)
             all_labels = np.array(all_labels)
             y_pred_binary = (all_outputs > 0.5).astype(int)
-            test_loss = running_loss / len(train_loader)
+            train_loss = running_loss / len(train_loader)
 
-            print(f"\nTrain Loss: {test_loss:.4f}")
-            acc, f1 = self.calculate_metrics(test_loss, all_labels, y_pred_binary, phase="train")
+            print(f"\nTrain Loss: {train_loss:.4f}")
+            acc, f1 = self.calculate_metrics(train_loss, all_labels, y_pred_binary, phase="train")
         
             if x_val is not None:
                 self.validate(validation_loader)
