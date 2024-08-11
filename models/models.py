@@ -220,8 +220,8 @@ class BasicModel(nn.Module):
     
     # we only care about the precision of the R_peaks (binary class 1) and we about the false positive rate
     def calculate_metrics(self, loss, y_true, y_pred_binary, phase="train"):
-        # TODO: upgrade metrics (R-wave prediction in the particular neighbourhood of the labeled sample treated as correct)
-        # according ot the AAMI standard, the R-peak prediction is considered to be correct (TP) 
+        # R-wave prediction in the particular neighbourhood of the labeled sample treated as correct
+        # according to the AAMI standard, the R-peak prediction is considered to be correct (TP) 
         # if its time deviation from each side of the real R-peak position is less than 75 ms. Should this time difference be greater,
         # the R-peak is considered to be a false positive
 

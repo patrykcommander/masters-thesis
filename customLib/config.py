@@ -5,3 +5,9 @@ apnea_ecg_path = "E:\\ml-data\\masters-thesis\\physionet.org\\files\\apnea-ecg\\
 apnea_sampling_rate = 100
 
 ptbxl_path = "E:\\ml-data\\masters-thesis\\ptb-xl-v2\\WFDB" # raw data
+
+qtdb_path = "E:\\ml-data\\masters-thesis\\physionet.org\\files\\qt-database-1.0.0"
+qtdb_sampling_rate = 250
+
+lobachevsky = "E:\\ml-data\\masters-thesis\\physionet.org\\files\\lobachevsky-university-electrocardiography-database-1.0.1"
+lobachevsky_sampling_rate = 500

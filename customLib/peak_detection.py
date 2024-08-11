@@ -47,6 +47,9 @@ def detect_nk(ecg_slice, fs):
 import numpy as np
 
 def find_mean_avg_r_peak_indices(y_pred):
+    if len(y_pred.shape) > 1:
+        y_pred = y_pred.flatten()
+
     result = np.zeros_like(y_pred)
     
     i = 0
