@@ -7,7 +7,13 @@ from customLib.vis import plot_ecg
 from customLib.config import *
 from customLib.preprocess import split_signal, expand_labels, myConv1D
 
-def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True, denoise=False):
+def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True, denoise=False, smoothen=True, normalize=True, raw=False):
+  if raw == True:
+    denoise = False
+    smoothen = False
+    normalize = False
+    expand = False
+
   preprocessed_path = os.path.join(path, "preprocessed")
 
   if expand:
@@ -74,15 +80,19 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
     n_sig = record.n_sig
     for sig in range(n_sig): # depends on the number of channels (mit-bih has 2, apnea-ecg has 1)
       ecg = record.p_signal[:,sig]
-      ecg = myConv1D(signal=ecg, kernel_length=5, padding="same")
+      if smoothen:
+        ecg = myConv1D(signal=ecg, kernel_length=5, padding="same")
 
-      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=True, overlap_factor=0.0, denoise=denoise)
-
-      invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
-      valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
-
+      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=normalize, overlap_factor=0.0, denoise=denoise)
       annotation_windows = split_signal(signal=r_peaks, window_in_seconds=window_in_seconds, fs=sampling_rate, overlap_factor=0.0)
-      valid_annotation_windows = [annotation_window for i, annotation_window in enumerate(annotation_windows) if i not in invalid_ecg_indices]
+
+      if not raw and normalize:
+        invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
+        valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
+        valid_annotation_windows = [annotation_window for i, annotation_window in enumerate(annotation_windows) if i not in invalid_ecg_indices]
+      else:
+        valid_ecg_windows = ecg_windows
+        valid_annotation_windows = annotation_windows
 
       if expand: # like in paper DOI: 10.1109/TIM.2023. - expanding R-peaks labels for easier learning
         valid_annotation_windows = expand_labels(valid_annotation_windows, fileName=str(fileName))
@@ -96,6 +106,8 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
           y = np.concatenate((y, np.array(valid_annotation_windows)))
         except:
           raise Exception('Invalid shape of ECG or Annotation windows. Ensure they have the correct shape -> (-1, sampling_rate * window_in_seconds).')
+
+  preprocessed_path = preprocessed_path if raw == False else os.path.join(preprocessed_path, "raw")
 
   np.save(file=(preprocessed_path + "\\x.npy"), arr=x)
   np.save(file=(preprocessed_path + "\\y.npy"), arr=y)

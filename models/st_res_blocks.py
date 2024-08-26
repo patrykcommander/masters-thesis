@@ -43,8 +43,8 @@ class ST(nn.Module):
         self.input_conv_3 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding="same", )
         self.input_conv_7 = nn.Conv1d(in_channels, out_channels, kernel_size=7, padding="same")
 
-        self.conv_kernel_3 = nn.ModuleList([nn.Conv1d(out_channels, out_channels, kernel_size=3, padding="same") for _ in range(2)])
-        self.conv_kernel_7 = nn.ModuleList([nn.Conv1d(out_channels, out_channels, kernel_size=7, padding="same") for _ in range(1)])
+        self.conv_kernel_3 = nn.ModuleList([nn.Conv1d(out_channels, out_channels, kernel_size=3, padding="same") for _ in range(3)])
+        self.conv_kernel_7 = nn.ModuleList([nn.Conv1d(out_channels, out_channels, kernel_size=7, padding="same") for _ in range(2)])
 
         self.max_pool = nn.MaxPool1d(kernel_size=2)
         self.dropout = nn.Dropout(dropout)

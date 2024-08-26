@@ -323,16 +323,16 @@ class LSTM(BasicModel):
 
       self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=loss_pos_weight) # WeightedBCELoss() # torch.nn.BCELoss()
       self.optimizer = Adam(self.parameters(), lr=lr, amsgrad=True)
-      self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, milestones=[15,25], gamma=0.1)
+      self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, milestones=[5,10], gamma=0.1)
 
       self.to(self.device)
 
     def forward(self, x):
         x, _ = self.lstm_1(x)
-        x = self.tangent(x)
+        #x = self.tangent(x)
 
         x, _ = self.lstm_2(x)
-        x = self.tangent(x)
+        #x = self.tangent(x)
 
         x = self.dense(x)
         # output = self.sigmoid(x) 
