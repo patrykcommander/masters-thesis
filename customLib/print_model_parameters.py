@@ -11,5 +11,5 @@ def print_model_parameters(model):
             print(f"{statement} {layer_params} parameters")
             total_params += layer_params
 
-    print(f"Total trainable params: {total_params}")
+    print(f"Total params: {total_params}")
     
