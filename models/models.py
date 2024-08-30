@@ -10,7 +10,7 @@ from models.datasets import ECGDataset
 from sklearn.metrics import f1_score, confusion_matrix, balanced_accuracy_score
 from models.st_res_blocks import ST, ResPath, UpSampleBlock
 from models.losses import WeightedBCELoss
-from models.transformer_blocks import TransformerEncoderLayer
+from models.transformer_blocks import TransformerEncoderLayer, PositionalEncoding
 from customLib.peak_detection import correct_prediction_according_to_aami
 
 class BasicModel(nn.Module):
@@ -218,7 +218,6 @@ class BasicModel(nn.Module):
         print(f"\nTest Loss: {test_loss:.4f}")
         self.calculate_metrics(test_loss, all_labels, y_pred_binary, phase="test")
     
-    # we only care about the precision of the R_peaks (binary class 1) and we about the false positive rate
     def calculate_metrics(self, loss, y_true, y_pred_binary, phase="train"):
         # R-wave prediction in the particular neighbourhood of the labeled sample treated as correct
         # according to the AAMI standard, the R-peak prediction is considered to be correct (TP) 
@@ -378,7 +377,6 @@ class TransRR(BasicModel):
         output = self.linear_1(output)
         
         return self.sigmoid(output)
-
 class SimpleTransformerModel(BasicModel):
     def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout):
         super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path="./checkpoints/TNET")
@@ -394,6 +392,8 @@ class SimpleTransformerModel(BasicModel):
             nn.Conv1d(32, input_dim, padding=1, kernel_size=3),
             nn.ReLU(),
         )
+        
+        self.positional_encoding = PositionalEncoding(d_model=input_dim, max_len=seq_length)
         
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
@@ -412,6 +412,8 @@ class SimpleTransformerModel(BasicModel):
         embedded = self.embedding_layer(x)  # Shape: [batch_size, input_dim, seq_length]
         embedded = embedded.permute(2, 0, 1) # Shape: [seq_length, batch_size, input_dim]
 
+        embedded = self.positional_encoding(embedded)  # Add positional encoding
+        
         transformed = self.transformer_encoder(embedded)  # Shape: [seq_length, batch_size, input_dim]
         transformed = transformed.permute(1, 0, 2)  # Reshape to [batch_size, seq_length, input_dim]
 
