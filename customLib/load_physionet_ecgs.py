@@ -61,6 +61,7 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
   print("ECGs sampling rate: ", sampling_rate)
 
   for i, fileName in tqdm(enumerate(fileNames), total=len(fileNames)):
+    print("File: ", fileName)
     filePath = os.path.join(path, fileName)
 
     try:
@@ -92,13 +93,9 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
       ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=normalize, overlap_factor=0.0, denoise=denoise)
       annotation_windows = split_signal(signal=r_peaks, window_in_seconds=window_in_seconds, fs=sampling_rate, overlap_factor=0.0)
 
-      if not raw and normalize:
-        invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
-        valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
-        valid_annotation_windows = [annotation_window for i, annotation_window in enumerate(annotation_windows) if i not in invalid_ecg_indices]
-      else:
-        valid_ecg_windows = ecg_windows
-        valid_annotation_windows = annotation_windows
+      invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
+      valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
+      valid_annotation_windows = [annotation_window for i, annotation_window in enumerate(annotation_windows) if i not in invalid_ecg_indices]
 
       if expand: # like in paper DOI: 10.1109/TIM.2023. - expanding R-peaks labels for easier learning
         valid_annotation_windows = expand_labels(valid_annotation_windows, fileName=str(fileName))

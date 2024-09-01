@@ -31,17 +31,29 @@ class BasicModel(nn.Module):
             "train": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }, 
             "validation": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }, 
             "test": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }
         }
 
@@ -255,6 +267,10 @@ class BasicModel(nn.Module):
         self.metrics[phase]["loss"].append(round(loss, 5))
         self.metrics[phase]["f1"].append(round(f1, 5))
         self.metrics[phase]["accuracy"].append(round(accuracy, 5))
+        self.metrics[phase]["tpr"].append(round(tpr, 5))
+        self.metrics[phase]["tnr"].append(round(tnr, 5))
+        self.metrics[phase]["fpr"].append(round(fpr, 5))
+        self.metrics[phase]["fnr"].append(round(fnr, 5))
 
         return accuracy, f1
     
@@ -262,8 +278,8 @@ class BasicModel(nn.Module):
         return self.metrics
 
 class ST_RES_NET(BasicModel):
-    def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None):
-        super(ST_RES_NET, self).__init__(apply_sigmoid=False, checkpoint_path="./checkpoints/st_res_net", name="ST_RES_NET")
+    def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None, checkpoint_path="./checkpoints/st_res_net"):
+        super(ST_RES_NET, self).__init__(apply_sigmoid=False, checkpoint_path=checkpoint_path, name="ST_RES_NET")
         self.st_block_1 = ST(1, 8)
         self.st_block_2 = ST(8, 16)
         self.st_block_3 = ST(16, 32)
@@ -378,8 +394,8 @@ class TransRR(BasicModel):
         
         return self.sigmoid(output)
 class SimpleTransformerModel(BasicModel):
-    def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout):
-        super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path="./checkpoints/TNET")
+    def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout, checkpoint_path="./checkpoints/TNET"):
+        super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path=checkpoint_path)
         
         self.input_dim = input_dim
         self.seq_length = seq_length

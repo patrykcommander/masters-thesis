@@ -63,6 +63,12 @@ def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0
             signal_slice = dwt_denoise(signal_slice)
         if normalize:
             signal_slice = norm_min_max(signal_slice, lower=-1, upper=1)
+        if np.isnan(signal_slice).any():
+            try:
+                raise ValueError(f"NaN values found in signal slice starting at index {start - step}")
+            except ValueError as e:
+                print(e)
+                signal_slice = 1
 
         signal_windows.append(signal_slice)
     return signal_windows

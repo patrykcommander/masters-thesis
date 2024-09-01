@@ -13,4 +13,4 @@ lobachevsky = "E:\\ml-data\\masters-thesis\\physionet.org\\files\\lobachevsky-un
 lobachevsky_sampling_rate = 500
 
 fantasia_path = "E:\\ml-data\\masters-thesis\\physionet.org\\files\\fantasia-database-1.0.0"
-fantasia_sampling_rate=250
+fantasia_sampling_rate = 250
