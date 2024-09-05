@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 import pywt
 
 #plotting the signal
@@ -38,46 +39,66 @@ def plot_dwt(ECG):
             plt.legend(["ECG"])
     plt.show()
 
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+
 def plot_metrics(metrics):
     fig, axs = plt.subplots(nrows=2, ncols=3)
     epochs = [x+1 for x in range(len(metrics["train"]["loss"]))]
     ticks = [x for x in epochs if x % 5 == 0]
     ticks.insert(0, 1)
 
+    loss_formatter = FormatStrFormatter('%.2f')  # Rounds loss to 2 decimal places
+    other_formatter = FormatStrFormatter('%.3f')  # Rounds other metrics to 3 decimal places
+
+    # Train Loss
     ax = axs[0][0]
     ax.plot(epochs, metrics["train"]["loss"])
     ax.grid()
     ax.set_title("Train Loss")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(loss_formatter)  # Use 2 decimal rounding for loss
 
+    # Train F1
     ax = axs[0][1]
     ax.plot(epochs, metrics["train"]["f1"])
     ax.grid()
     ax.set_title("Train f1")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(other_formatter)  # Use 3 decimal rounding for f1
 
+    # Train Accuracy
     ax = axs[0][2]
     ax.plot(epochs, metrics["train"]["accuracy"])
     ax.grid()
     ax.set_title("Train accuracy")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(other_formatter)  # Use 3 decimal rounding for accuracy
 
+    # Validation Loss
     ax = axs[1][0]
     ax.plot(epochs, metrics["validation"]["loss"])
     ax.grid()
     ax.set_title("Validation Loss")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(loss_formatter)  # Use 2 decimal rounding for loss
 
+    # Validation F1
     ax = axs[1][1]
     ax.plot(epochs, metrics["validation"]["f1"])
     ax.grid()
     ax.set_title("Validation f1")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(other_formatter)  # Use 3 decimal rounding for f1
 
+    # Validation Accuracy
     ax = axs[1][2]
     ax.plot(epochs, metrics["validation"]["accuracy"])
     ax.grid()
     ax.set_title("Validation accuracy")
     ax.set_xticks(ticks)
+    ax.yaxis.set_major_formatter(other_formatter)  # Use 3 decimal rounding for accuracy
 
-    fig.set_size_inches(w=14, h=8)
+    fig.text(0.5, 0.04, 'Epochs', ha='center', weight='semibold', fontsize="16")
+    fig.text(0.06, 0.5, 'Values', va='center', rotation='vertical', weight='semibold', fontsize="16")
+    fig.set_size_inches(w=12, h=8)

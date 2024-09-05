@@ -54,11 +54,11 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
   if path.find("apnea-ecg")!= -1: # records c05 and c06 are the same
     fileNames.remove("c05")
 
-  x = None
-  y = None
-
   sampling_rate = wfdb.rdrecord((path + "\\" + fileNames[0])).fs
   print("ECGs sampling rate: ", sampling_rate)
+
+  x = np.empty((0,window_in_seconds * sampling_rate))
+  y = np.empty((0,window_in_seconds * sampling_rate))
 
   for i, fileName in tqdm(enumerate(fileNames), total=len(fileNames)):
     print("File: ", fileName)
@@ -100,15 +100,11 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
       if expand: # like in paper DOI: 10.1109/TIM.2023. - expanding R-peaks labels for easier learning
         valid_annotation_windows = expand_labels(valid_annotation_windows, fileName=str(fileName))
 
-      if x is None:
-        x = np.array(valid_ecg_windows)
-        y = np.array(valid_annotation_windows)
-      else:
-        try:
-          x = np.concatenate((x, np.array(valid_ecg_windows)))
-          y = np.concatenate((y, np.array(valid_annotation_windows)))
-        except:
-          raise Exception('Invalid shape of ECG or Annotation windows. Ensure they have the correct shape -> (-1, sampling_rate * window_in_seconds).')
+      try:
+        x = np.concatenate((x, np.array(valid_ecg_windows)), axis=0)
+        y = np.concatenate((y, np.array(valid_annotation_windows)), axis=0)
+      except:
+        raise Exception('Invalid shape of ECG or Annotation windows. Ensure they have the correct shape -> (-1, sampling_rate * window_in_seconds).')
 
   preprocessed_path = preprocessed_path if raw == False else os.path.join(preprocessed_path, "raw")
 
