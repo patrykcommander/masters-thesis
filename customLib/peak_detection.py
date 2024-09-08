@@ -78,9 +78,7 @@ def correct_prediction_according_to_aami(y_true, y_pred, sampling_rate=100):
             subset = y_pred[left:right]
             
             if np.any(subset == 1):
-                idx = np.where(subset == 1)[0][0]
-                if 0 <= left + idx < len(y_pred):
-                    y_pred[left + idx] = 0
+                y_pred[left:right] = 0
                 y_pred[i] = 1
                 
     return y_pred

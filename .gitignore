@@ -4,3 +4,4 @@ __pycache__/
 venv
 
 aidmed_ecgs/preprocessed
+aidmed_ecgs/raw
