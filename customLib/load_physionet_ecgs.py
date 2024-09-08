@@ -7,7 +7,13 @@ from customLib.vis import plot_ecg
 from customLib.config import *
 from customLib.preprocess import split_signal, expand_labels, myConv1D
 
-def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True, denoise=False):
+def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=True, window_in_seconds=5, expand=True, denoise=False, smoothen=True, normalize=True, raw=False):
+  if raw == True:
+    denoise = False
+    smoothen = False
+    normalize = False
+    expand = False
+
   preprocessed_path = os.path.join(path, "preprocessed")
 
   if expand:
@@ -48,13 +54,14 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
   if path.find("apnea-ecg")!= -1: # records c05 and c06 are the same
     fileNames.remove("c05")
 
-  x = None
-  y = None
-
   sampling_rate = wfdb.rdrecord((path + "\\" + fileNames[0])).fs
   print("ECGs sampling rate: ", sampling_rate)
 
+  x = np.empty((0,window_in_seconds * sampling_rate))
+  y = np.empty((0,window_in_seconds * sampling_rate))
+
   for i, fileName in tqdm(enumerate(fileNames), total=len(fileNames)):
+    print("File: ", fileName)
     filePath = os.path.join(path, fileName)
 
     try:
@@ -63,7 +70,10 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
       print(e, "File: ", fileName)
       continue
 
-    assert record.fs == sampling_rate
+    #assert record.fs == sampling_rate
+    if record.fs != sampling_rate:
+      print(f"Skipping file {fileName} due to a different sampling rate (target: {sampling_rate}, file: {record.fs})") # fantasia database f2y01.ecg sampling rate is 333
+      continue
 
     annotation = wfdb.rdann(filePath, annotation_file_extension)
     annotation = np.unique(annotation.sample[np.in1d(annotation.symbol, ['N', 'L', 'R', 'B', 'A', 'a', 'J', 'S', 'V', 'r', 'F', 'e', 'j', 'n', 'E', 'f', 'Q', '?'])])
@@ -73,29 +83,30 @@ def load_physionet_ecgs(path: str, annotation_file_extension="atr", force_new=Tr
 
     n_sig = record.n_sig
     for sig in range(n_sig): # depends on the number of channels (mit-bih has 2, apnea-ecg has 1)
-      ecg = record.p_signal[:,sig]
-      ecg = myConv1D(signal=ecg, kernel_length=5, padding="same")
+      if record.sig_name[sig] in ["RESP", "BP"]: # fantasia database has two / three channels -> ECG, RESP, BP, we skip all apart from ECG
+        continue
 
-      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=True, overlap_factor=0.0, denoise=denoise)
+      ecg = record.p_signal[:,sig]
+      if smoothen:
+        ecg = myConv1D(signal=ecg, kernel_length=5, padding="same")
+
+      ecg_windows = split_signal(signal=ecg, window_in_seconds=window_in_seconds, fs=sampling_rate, normalize=normalize, overlap_factor=0.0, denoise=denoise)
+      annotation_windows = split_signal(signal=r_peaks, window_in_seconds=window_in_seconds, fs=sampling_rate, overlap_factor=0.0)
 
       invalid_ecg_indices = {i for i, x in enumerate(ecg_windows) if isinstance(x, int)}
       valid_ecg_windows = [ecg_window for i, ecg_window in enumerate(ecg_windows) if i not in invalid_ecg_indices]
-
-      annotation_windows = split_signal(signal=r_peaks, window_in_seconds=window_in_seconds, fs=sampling_rate, overlap_factor=0.0)
       valid_annotation_windows = [annotation_window for i, annotation_window in enumerate(annotation_windows) if i not in invalid_ecg_indices]
 
       if expand: # like in paper DOI: 10.1109/TIM.2023. - expanding R-peaks labels for easier learning
         valid_annotation_windows = expand_labels(valid_annotation_windows, fileName=str(fileName))
 
-      if x is None:
-        x = np.array(valid_ecg_windows)
-        y = np.array(valid_annotation_windows)
-      else:
-        try:
-          x = np.concatenate((x, np.array(valid_ecg_windows)))
-          y = np.concatenate((y, np.array(valid_annotation_windows)))
-        except:
-          raise Exception('Invalid shape of ECG or Annotation windows. Ensure they have the correct shape -> (-1, sampling_rate * window_in_seconds).')
+      try:
+        x = np.concatenate((x, np.array(valid_ecg_windows)), axis=0)
+        y = np.concatenate((y, np.array(valid_annotation_windows)), axis=0)
+      except:
+        raise Exception('Invalid shape of ECG or Annotation windows. Ensure they have the correct shape -> (-1, sampling_rate * window_in_seconds).')
+
+  preprocessed_path = preprocessed_path if raw == False else os.path.join(preprocessed_path, "raw")
 
   np.save(file=(preprocessed_path + "\\x.npy"), arr=x)
   np.save(file=(preprocessed_path + "\\y.npy"), arr=y)

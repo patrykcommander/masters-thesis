@@ -10,7 +10,7 @@ from models.datasets import ECGDataset
 from sklearn.metrics import f1_score, confusion_matrix, balanced_accuracy_score
 from models.st_res_blocks import ST, ResPath, UpSampleBlock
 from models.losses import WeightedBCELoss
-from models.transformer_blocks import TransformerEncoderLayer
+from models.transformer_blocks import TransformerEncoderLayer, PositionalEncoding
 from customLib.peak_detection import correct_prediction_according_to_aami
 
 class BasicModel(nn.Module):
@@ -31,17 +31,29 @@ class BasicModel(nn.Module):
             "train": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }, 
             "validation": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }, 
             "test": {
                 "loss": [], 
                 "f1": [], 
-                "accuracy": []
+                "accuracy": [],
+                "tpr": [],
+                "tnr": [],
+                "fpr": [],
+                "fnr":[]
             }
         }
 
@@ -218,10 +230,9 @@ class BasicModel(nn.Module):
         print(f"\nTest Loss: {test_loss:.4f}")
         self.calculate_metrics(test_loss, all_labels, y_pred_binary, phase="test")
     
-    # we only care about the precision of the R_peaks (binary class 1) and we about the false positive rate
     def calculate_metrics(self, loss, y_true, y_pred_binary, phase="train"):
-        # TODO: upgrade metrics (R-wave prediction in the particular neighbourhood of the labeled sample treated as correct)
-        # according ot the AAMI standard, the R-peak prediction is considered to be correct (TP) 
+        # R-wave prediction in the particular neighbourhood of the labeled sample treated as correct
+        # according to the AAMI standard, the R-peak prediction is considered to be correct (TP) 
         # if its time deviation from each side of the real R-peak position is less than 75 ms. Should this time difference be greater,
         # the R-peak is considered to be a false positive
 
@@ -256,6 +267,10 @@ class BasicModel(nn.Module):
         self.metrics[phase]["loss"].append(round(loss, 5))
         self.metrics[phase]["f1"].append(round(f1, 5))
         self.metrics[phase]["accuracy"].append(round(accuracy, 5))
+        self.metrics[phase]["tpr"].append(round(tpr, 5))
+        self.metrics[phase]["tnr"].append(round(tnr, 5))
+        self.metrics[phase]["fpr"].append(round(fpr, 5))
+        self.metrics[phase]["fnr"].append(round(fnr, 5))
 
         return accuracy, f1
     
@@ -263,8 +278,8 @@ class BasicModel(nn.Module):
         return self.metrics
 
 class ST_RES_NET(BasicModel):
-    def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None):
-        super(ST_RES_NET, self).__init__(apply_sigmoid=False, checkpoint_path="./checkpoints/st_res_net", name="ST_RES_NET")
+    def __init__(self, learning_rate=1e-4, loss_pos_weight=None, loss_neg_weight=None, checkpoint_path="./checkpoints/st_res_net"):
+        super(ST_RES_NET, self).__init__(apply_sigmoid=False, checkpoint_path=checkpoint_path, name="ST_RES_NET")
         self.st_block_1 = ST(1, 8)
         self.st_block_2 = ST(8, 16)
         self.st_block_3 = ST(16, 32)
@@ -323,16 +338,16 @@ class LSTM(BasicModel):
 
       self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=loss_pos_weight) # WeightedBCELoss() # torch.nn.BCELoss()
       self.optimizer = Adam(self.parameters(), lr=lr, amsgrad=True)
-      self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, milestones=[15,25], gamma=0.1)
+      self.scheduler = lr_scheduler.MultiStepLR(self.optimizer, milestones=[5,10], gamma=0.1)
 
       self.to(self.device)
 
     def forward(self, x):
         x, _ = self.lstm_1(x)
-        x = self.tangent(x)
+        #x = self.tangent(x)
 
         x, _ = self.lstm_2(x)
-        x = self.tangent(x)
+        #x = self.tangent(x)
 
         x = self.dense(x)
         # output = self.sigmoid(x) 
@@ -378,10 +393,9 @@ class TransRR(BasicModel):
         output = self.linear_1(output)
         
         return self.sigmoid(output)
-
 class SimpleTransformerModel(BasicModel):
-    def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout):
-        super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path="./checkpoints/TNET")
+    def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout, checkpoint_path="./checkpoints/TNET"):
+        super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path=checkpoint_path)
         
         self.input_dim = input_dim
         self.seq_length = seq_length
@@ -394,6 +408,8 @@ class SimpleTransformerModel(BasicModel):
             nn.Conv1d(32, input_dim, padding=1, kernel_size=3),
             nn.ReLU(),
         )
+        
+        self.positional_encoding = PositionalEncoding(d_model=input_dim, max_len=seq_length)
         
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
@@ -412,6 +428,8 @@ class SimpleTransformerModel(BasicModel):
         embedded = self.embedding_layer(x)  # Shape: [batch_size, input_dim, seq_length]
         embedded = embedded.permute(2, 0, 1) # Shape: [seq_length, batch_size, input_dim]
 
+        embedded = self.positional_encoding(embedded)  # Add positional encoding
+        
         transformed = self.transformer_encoder(embedded)  # Shape: [seq_length, batch_size, input_dim]
         transformed = transformed.permute(1, 0, 2)  # Reshape to [batch_size, seq_length, input_dim]
 

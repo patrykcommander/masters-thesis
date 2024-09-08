@@ -33,12 +33,8 @@ class ST(nn.Module):
     def __init__(self, in_channels, out_channels, dropout=0.25):
         super(ST, self).__init__()
 
-        if int(out_channels/2) < 1:
-            hidden_size = 1
-        else:
-            hidden_size = int(out_channels/2)
-
-        self.bi_lstm = nn.LSTM(input_size=in_channels, hidden_size=hidden_size, batch_first=True, bidirectional=True)
+        self.bi_lstm = nn.LSTM(input_size=in_channels, hidden_size=32, batch_first=True, bidirectional=True)
+        self.conv_1 = nn.Conv1d(32 * 2, out_channels, kernel_size=1, padding="same")
 
         self.input_conv_3 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding="same", )
         self.input_conv_7 = nn.Conv1d(in_channels, out_channels, kernel_size=7, padding="same")
@@ -70,9 +66,10 @@ class ST(nn.Module):
 
         x = x.permute(0, 2, 1)
         x_3, _ = self.bi_lstm(x)
-        x_3 = self.relu(x_3)
         
         x_3 = x_3.permute(0, 2, 1)
+        x_3 = self.conv_1(x_3) # adjust the channel size to match other convolution channel sizes
+        x_3 = self.relu(x_3)
 
         f = x_1 + x_2 + x_3
         p = self.max_pool(f)
