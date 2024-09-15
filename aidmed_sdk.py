@@ -3,50 +3,48 @@ import os
 from datetime import datetime
 from typing import List
 import numpy as np
-from aidlab import AidlabManager, Device, DeviceDelegate, DataType
+from aidlab import DeviceDelegate, Device, AidlabManager, DataType
 
 
 DEST = "E:\\ml-data\\masters-thesis\\myDataset\\Patryk\\ecg_with_resp"
 
 class MainManager(DeviceDelegate):
+    def __init__(self):
+        self.ecg = []
+        self.resp = []
+
+        print("Creating examination file references...")
+        self.file_name_ecg = os.path.join(DEST, "6_ecg.npy")
+        self.file_name_resp = os.path.join(DEST, "6_resp.npy")
+
     def did_connect(self, device: Device):
         print("Connected to:", device.address)
-        print("Creating examination file....")
-        self.current_ecg = []
-        self.current_rr = []
-        self.current_resp = []
-        #current_date = datetime.now().strftime("%d-%m-%y_%H_%M")
-        self.file_name_ecg = os.path.join(DEST, "ecg.npy")
-        self.file_name_resp = os.path.join(DEST, "resp.npy")
-        # self.file_name_rr = os.path.join(DEST, (current_date + "rr.npy"))
-        #if not os.path.isfile(self.file_name):
-        #    self.fp = open(self.file_name, '+a')
 
     async def run(self):
         devices = await AidlabManager().scan()
         if len(devices) > 0:
             print("Connecting to: ", devices[0].address)
-            await devices[0].connect(self, [DataType.ECG, DataType.RESPIRATION])
+            await devices[0].connect(self, [DataType.ECG, DataType.RESPIRATION, DataType.RESPIRATION_RATE])
             print("Rozpoczynam zapis danych...")
-            await asyncio.sleep(60)
+            await asyncio.sleep(150)
             print("Kończę pomiar...")
             self.save_examination()
-            print(len(self.current_ecg))
-            print(len(self.file_name_resp))
+            print("Czas pomiaru ECG", len(self.ecg) / 250)
+            print("Czas pomiaru RESP", len(self.resp) / 50)
     
-    def did_receive_ecg(self, _, timestamp, values):
-        self.current_ecg.append([float(values[0]), timestamp])
+    def did_receive_ecg(self, device, timestamp: int, values):
+        self.ecg.append([float(values[0]), timestamp])
 
     def did_receive_respiration(self, device: Device, timestamp: int, values: List[float]):
-        self.current_resp.append([[float(values[0])], [timestamp]])
+        self.resp.append([float(values[0]), timestamp])
 
     def did_disconnect(self, device: Device):
         print("Disconnect")
         self.save_examination()
     
     def save_examination(self):
-        np.save(self.file_name_ecg, self.current_ecg)
-        np.save(self.file_name_resp, self.current_resp)
+        np.save(self.file_name_ecg, self.ecg)
+        np.save(self.file_name_resp, self.resp)
 
 
 asyncio.run(MainManager().run())
