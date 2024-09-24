@@ -50,7 +50,7 @@ def norm_min_max(signal, lower, upper):
 def stationary(signal):
     return np.diff(signal)
 
-def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, normalize=False, denoise=False):
+def split_signal(signal, normalize: tuple, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, denoise=False):
     window_size = int(fs * window_in_seconds)
     overlap = int(window_size * overlap_factor)
     step = window_size - overlap
@@ -61,8 +61,9 @@ def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0
         start += step
         if denoise:
             signal_slice = dwt_denoise(signal_slice)
-        if normalize:
-            signal_slice = norm_min_max(signal_slice, lower=-1, upper=1)
+        if isinstance(normalize, (tuple)):
+            if normalize[0] == True:
+                signal_slice = norm_min_max(signal_slice, lower=normalize[1][0], upper=normalize[1][1])
         if np.isnan(signal_slice).any():
             try:
                 raise ValueError(f"NaN values found in signal slice starting at index {start - step}")

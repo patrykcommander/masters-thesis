@@ -331,7 +331,6 @@ class LSTM(BasicModel):
       #self.relu = torch.nn.ReLU()
       # achieveing better results with Dense layer instead of Conv1d and when dropout is used after lstm instead of Dense layer
       #self.conv = torch.nn.Conv1d(kernel_size=1, in_channels=hidden_size, out_channels=1) 
-      self.tangent = torch.nn.Tanh()
 
       self.dense = torch.nn.Linear(in_features=2*hidden_size, out_features=1)
       # self.sigmoid = torch.nn.Sigmoid()
