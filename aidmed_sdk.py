@@ -15,8 +15,8 @@ class MainManager(DeviceDelegate):
         self.resp = []
 
         print("Creating examination file references...")
-        self.file_name_ecg = os.path.join(DEST, "30_ecg.npy")
-        self.file_name_resp = os.path.join(DEST, "30_resp.npy")
+        self.file_name_ecg = os.path.join(DEST, "27_ecg.npy")
+        self.file_name_resp = os.path.join(DEST, "27_resp.npy")
 
     async def run(self):
         devices = await AidlabManager().scan()
@@ -24,7 +24,7 @@ class MainManager(DeviceDelegate):
             print("Connecting to: ", devices[0].address)
             await devices[0].connect(self)
             print("Rozpoczynam zapis danych...")
-            await asyncio.sleep(180)
+            await asyncio.sleep(240)
             print("Kończę pomiar...")
             self.save_examination()
             print("Czas pomiaru ECG", len(self.ecg) / 250)
