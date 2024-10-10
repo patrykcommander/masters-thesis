@@ -15,8 +15,8 @@ class MainManager(DeviceDelegate):
         self.resp = []
 
         print("Creating examination file references...")
-        self.file_name_ecg = os.path.join(DEST, "27_ecg.npy")
-        self.file_name_resp = os.path.join(DEST, "27_resp.npy")
+        self.file_name_ecg = os.path.join(DEST, "46_ecg.npy")
+        self.file_name_resp = os.path.join(DEST, "46_resp.npy")
 
     async def run(self):
         devices = await AidlabManager().scan()

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import resample
+import matplotlib.pyplot as plt
 import pywt
 
 def add_padding(signal: np.ndarray, kernel_length: int):
@@ -37,14 +38,17 @@ def myConv1D(signal: np.ndarray, kernel_length: int, padding='same'):
 def norm_min_max(signal, lower, upper):
     with np.errstate(invalid='raise'):
         try:
+            if signal.ndim > 2 or (signal.shape[0] > 1 and signal.ndim == 2):
+                raise Exception("Invalid shape: ", signal.shape)
+
+            signal = signal.flatten()
             signal_std = (signal - signal.min(axis=0)) / (signal.max(axis=0) - signal.min(axis=0))
             signal_scaled = signal_std * (upper - lower) + lower
             return signal_scaled
         except Exception as e:
-            # Do later - validate ECG windows also when normalize = False
-            # in Apnea dataset, when creating windows of the signal, there happens to be invalid ECG windows (no ECG, just noise signal)
-            # plot_ecg(signal, title="Error in norm_min_max") 
             print(e)
+            plt.plot(signal.flatten())
+            plt.show()
             return 1
 
 def stationary(signal):
