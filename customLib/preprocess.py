@@ -162,3 +162,24 @@ def expand_labels(annotation_windows: list, fileName="", left_shift=5, right_shi
         expanded_annotations.append(new_annotation)
 
     return np.array(expanded_annotations)
+
+
+def invert_log_softmax(log_softmax_output: np.array) -> np.array:
+    """
+    Inverts the log_softmax output to recover the softmax probabilities.
+    
+    Args:
+    - log_softmax_output: np.array, the output of log_softmax.
+    
+    Returns:
+    - softmax_probs: np.array, the recovered softmax probabilities.
+    """
+    # Step 1: Exponentiate to invert the log operation
+    softmax_probs = np.exp(log_softmax_output)
+    
+    # Step 2: Normalize to ensure probabilities sum to 1
+    # This step is technically optional since the exponentiation already handles it,
+    # but it's good practice to normalize to avoid any floating-point issues.
+    softmax_probs /= np.sum(softmax_probs, axis=-1, keepdims=True)
+    
+    return softmax_probs

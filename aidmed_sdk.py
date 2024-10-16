@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import List
 import numpy as np
 from aidlab import DeviceDelegate, Device, AidlabManager, DataType
-import time
 
 
 DEST = "E:\\ml-data\\masters-thesis\\myDataset\\Patryk\\ecg_with_resp"
@@ -15,8 +14,8 @@ class MainManager(DeviceDelegate):
         self.resp = []
 
         print("Creating examination file references...")
-        self.file_name_ecg = os.path.join(DEST, "52_ecg.npy")
-        self.file_name_resp = os.path.join(DEST, "52_resp.npy")
+        self.file_name_ecg = os.path.join(DEST, "64_ecg.npy")
+        self.file_name_resp = os.path.join(DEST, "64_resp.npy")
 
     async def run(self):
         devices = await AidlabManager().scan()
