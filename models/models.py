@@ -352,46 +352,6 @@ class LSTM(BasicModel):
         # output = self.sigmoid(x) 
         return x
 
-class TransRR(BasicModel):
-    def __init__(self, num_layers, input_dim, nhead, dropout, loss_pos_weight, loss_neg_weight, learning_rate=1e-4):
-        super(TransRR, self).__init__(name="transRR", checkpoint_path="./checkpoints/transRR")
-
-        self.embedding_layer = nn.Sequential(
-            nn.Conv1d(1, 16, padding=1, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv1d(16, 32, padding=1, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv1d(32, input_dim, padding=1, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv1d(64, input_dim, padding=1, kernel_size=3),
-            nn.ReLU(),
-        )
-
-        self.layers = nn.ModuleList([
-            TransformerEncoderLayer(input_dim=input_dim, nhead=nhead, dropout=dropout)
-            for _ in range(num_layers)
-        ])
-        self.num_layers = num_layers
-
-        self.linear_1 = nn.Linear(input_dim, 1)
-
-        self.sigmoid = nn.Sigmoid()
-
-        self.criterion = WeightedBCELoss(positive_weight=loss_pos_weight, negative_weight=loss_neg_weight) # nn.BCELoss()
-        self.optimizer = Adam(self.parameters(), lr=learning_rate)
-        self.to(self.device)
-
-
-    def forward(self, src):
-        src = self.embedding_layer(src)
-
-        output = src.permute(0,2,1)
-        for layer in self.layers:
-            output = layer(output)
- 
-        output = self.linear_1(output)
-        
-        return self.sigmoid(output)
 class SimpleTransformerModel(BasicModel):
     def __init__(self, input_dim, seq_length, num_layers, num_heads, dim_feedforward, dropout, checkpoint_path="./checkpoints/TNET"):
         super(SimpleTransformerModel, self).__init__(name="TNET", checkpoint_path=checkpoint_path)
