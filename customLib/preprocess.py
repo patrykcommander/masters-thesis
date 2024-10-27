@@ -183,3 +183,33 @@ def invert_log_softmax(log_softmax_output: np.array) -> np.array:
     softmax_probs /= np.sum(softmax_probs, axis=-1, keepdims=True)
     
     return softmax_probs
+
+
+def detect_local_extrema(x: np.array, y: np.array):
+    """
+    Detects local maxima and minima using the second derivative test.
+    
+    Args:
+    - x: np.array, independent variable (e.g., time or position)
+    - y: np.array, dependent variable (e.g., function values)
+    
+    Returns:
+    - local_maxima: list of tuples (x, y) of local maxima points
+    - local_minima: list of tuples (x, y) of local minima points
+    """
+    # Step 1: Calculate the first and second derivatives using numpy's gradient function
+    dy_dx = np.gradient(y, x)   # First derivative
+    d2y_dx2 = np.gradient(dy_dx, x)  # Second derivative
+
+    # Step 2: Identify points where the first derivative crosses zero (potential extrema)
+    local_maxima = []
+    local_minima = []
+    
+    for i in range(1, len(dy_dx) - 1):
+        if np.sign(dy_dx[i-1]) != np.sign(dy_dx[i+1]):  # Derivative changes sign
+            if d2y_dx2[i] < 0:  # Negative second derivative => local maxima
+                local_maxima.append((x[i]))
+            elif d2y_dx2[i] > 0:  # Positive second derivative => local minima
+                local_minima.append((x[i]))
+    
+    return np.array(local_maxima), np.array(local_minima)
