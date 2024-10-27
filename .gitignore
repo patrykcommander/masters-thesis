@@ -4,5 +4,3 @@ venv
 
 aidmed_ecgs/preprocessed
 aidmed_ecgs/raw
-
-checkpoints/resp
