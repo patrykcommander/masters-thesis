@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import resample
+import matplotlib.pyplot as plt
 import pywt
 
 def add_padding(signal: np.ndarray, kernel_length: int):
@@ -37,20 +38,23 @@ def myConv1D(signal: np.ndarray, kernel_length: int, padding='same'):
 def norm_min_max(signal, lower, upper):
     with np.errstate(invalid='raise'):
         try:
+            if signal.ndim > 2 or (signal.shape[0] > 1 and signal.ndim == 2):
+                raise Exception("Invalid shape: ", signal.shape)
+
+            signal = signal.flatten()
             signal_std = (signal - signal.min(axis=0)) / (signal.max(axis=0) - signal.min(axis=0))
             signal_scaled = signal_std * (upper - lower) + lower
             return signal_scaled
         except Exception as e:
-            # Do later - validate ECG windows also when normalize = False
-            # in Apnea dataset, when creating windows of the signal, there happens to be invalid ECG windows (no ECG, just noise signal)
-            # plot_ecg(signal, title="Error in norm_min_max") 
             print(e)
+            plt.plot(signal.flatten())
+            plt.show()
             return 1
 
 def stationary(signal):
     return np.diff(signal)
 
-def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, normalize=False, denoise=False):
+def split_signal(signal, normalize: tuple, start=0, window_in_seconds=10, fs=250, overlap_factor=0.1, denoise=False):
     window_size = int(fs * window_in_seconds)
     overlap = int(window_size * overlap_factor)
     step = window_size - overlap
@@ -61,8 +65,9 @@ def split_signal(signal, start=0, window_in_seconds=10, fs=250, overlap_factor=0
         start += step
         if denoise:
             signal_slice = dwt_denoise(signal_slice)
-        if normalize:
-            signal_slice = norm_min_max(signal_slice, lower=-1, upper=1)
+        if isinstance(normalize, (tuple)):
+            if normalize[0] == True:
+                signal_slice = norm_min_max(signal_slice, lower=normalize[1][0], upper=normalize[1][1])
         if np.isnan(signal_slice).any():
             try:
                 raise ValueError(f"NaN values found in signal slice starting at index {start - step}")
@@ -157,3 +162,54 @@ def expand_labels(annotation_windows: list, fileName="", left_shift=5, right_shi
         expanded_annotations.append(new_annotation)
 
     return np.array(expanded_annotations)
+
+
+def invert_log_softmax(log_softmax_output: np.array) -> np.array:
+    """
+    Inverts the log_softmax output to recover the softmax probabilities.
+    
+    Args:
+    - log_softmax_output: np.array, the output of log_softmax.
+    
+    Returns:
+    - softmax_probs: np.array, the recovered softmax probabilities.
+    """
+    # Step 1: Exponentiate to invert the log operation
+    softmax_probs = np.exp(log_softmax_output)
+    
+    # Step 2: Normalize to ensure probabilities sum to 1
+    # This step is technically optional since the exponentiation already handles it,
+    # but it's good practice to normalize to avoid any floating-point issues.
+    softmax_probs /= np.sum(softmax_probs, axis=-1, keepdims=True)
+    
+    return softmax_probs
+
+
+def detect_local_extrema(x: np.array, y: np.array):
+    """
+    Detects local maxima and minima using the second derivative test.
+    
+    Args:
+    - x: np.array, independent variable (e.g., time or position)
+    - y: np.array, dependent variable (e.g., function values)
+    
+    Returns:
+    - local_maxima: list of tuples (x, y) of local maxima points
+    - local_minima: list of tuples (x, y) of local minima points
+    """
+    # Step 1: Calculate the first and second derivatives using numpy's gradient function
+    dy_dx = np.gradient(y, x)   # First derivative
+    d2y_dx2 = np.gradient(dy_dx, x)  # Second derivative
+
+    # Step 2: Identify points where the first derivative crosses zero (potential extrema)
+    local_maxima = []
+    local_minima = []
+    
+    for i in range(1, len(dy_dx) - 1):
+        if np.sign(dy_dx[i-1]) != np.sign(dy_dx[i+1]):  # Derivative changes sign
+            if d2y_dx2[i] < 0:  # Negative second derivative => local maxima
+                local_maxima.append((x[i]))
+            elif d2y_dx2[i] > 0:  # Positive second derivative => local minima
+                local_minima.append((x[i]))
+    
+    return np.array(local_maxima), np.array(local_minima)

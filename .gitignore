@@ -1,6 +1,5 @@
 .vscode
 __pycache__/
-*.txt
 venv
 
 aidmed_ecgs/preprocessed

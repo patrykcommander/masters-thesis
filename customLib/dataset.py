@@ -37,7 +37,7 @@ def split_dataset(x=None, y=None, split_ratio=0.8, is_validation_set=False, shuf
     raise ValueError("X or Y are empty.")
 
   total_ecgs = x.shape[0]  
-  print(f"Total ECGs: {x.shape[0]}")
+  print(f"Total X: {x.shape[0]}")
 
   split_idx = int(total_ecgs * split_ratio)
 
